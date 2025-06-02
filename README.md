@@ -23,7 +23,7 @@
 3. run the app:
 
    ```bash
- npx expo start  || yarn run ios || yarn run android
+ npx expo start  or yarn run ios or yarn run android
 
 
  apk link 
