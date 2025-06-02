@@ -1,0 +1,11 @@
+# Node modules
+node_modules/
+
+# Expo specific
+.expo/
+.expo-shared/
+expo-env.d.ts
+
+# System files
+.DS_Store
+.env
