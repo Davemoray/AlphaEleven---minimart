@@ -1,53 +1,76 @@
-name: EAS BUILD and Firebase Upload
+name: Expo Android CI/CD to Firebase App Distribution
 
 on:
   push:
     branches:
-      - development
+      - development # This workflow will trigger on pushes to the 'development' branch
+
 jobs:
-  build-and-upload:
-    runs-on: ubuntu-latest
+  build_and_distribute:
+    runs-on: ubuntu-latest # Specifies the operating system for the runner
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
+        # Action to check out your repository code onto the runner
         uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        # Sets up the Node.js environment
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '18' # Use a Node.js version compatible with Expo
 
-      - name : Install dependencies
+      - name: Install dependencies
+        # Installs project dependencies
         run: npm install
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Install Expo CLI and EAS CLI
+        # Installs the Expo CLI and EAS CLI globally
+        run: npm install -g expo-cli eas-cli
 
-      - name: EAS login
-        run: eas whoami
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Login to Expo
+        # Logs into your Expo account using the Expo token secret
+        run: eas login --token ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build APK using EAS (wait for completion)
-        id: eas-build
-        run: |
-            result=$(eas build --platform android --profile development --non-interactive --wait --json)
-            echo "$result"
-            
-            # Extract the download URL
-            url=$(echo "$result" | jq -r '.artifacts.android.url')
-            echo "APK download URL: $url"
-            echo "APK_URL=$url" >> $GITHUB_ENV
-          env:
-            EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Build Android APK with EAS
+        # Starts an EAS build for Android.
+        # --profile development: Uses the 'development' build profile defined in eas.json.
+        #                       Ensure you have a 'development' profile set up for Android.
+        # --non-interactive: Prevents interactive prompts during the build process.
+        # --wait: Waits for the build to complete and provides the build URL.
+        run: eas build --platform android --profile development --non-interactive --wait
 
-      - name: 📥 Download APK
-        run: curl -o app-release.apk "$APK_URL"
+      - name: Download Build Artifact
+        # Downloads the generated APK from the completed EAS build.
+        # The build URL is often available from the previous step's output.
+        # This command fetches the latest successful build for the specified profile and platform.
+        run: eas build:download --platform android --profile development --output app-debug.apk
 
-      - name: Upload APK to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
+      - name: Upload APK as Artifact (Optional)
+        # This step uploads the built APK as a workflow artifact, useful for debugging
+        # or manual downloads later. The artifact will be available in the workflow run summary.
+        uses: actions/upload-artifact@v4
         with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-          file: app-release.apk
-          groups: testers
+          name: app-debug-apk # Name for the uploaded artifact
+          path: app-debug.apk # Path to the downloaded APK file
+
+      - name: Install Firebase CLI
+        # Installs the Firebase CLI globally on the GitHub Actions runner.
+        # This is required to use Firebase commands for App Distribution.
+        run: npm install -g firebase-tools
+
+      - name: Distribute to Firebase App Distribution
+        # Uses the Firebase CLI to upload the APK to Firebase App Distribution.
+        # --app: Your Firebase App ID (stored as a GitHub secret).
+        # --token: Your Firebase CI token (stored as a GitHub secret).
+        # --groups: (Optional) Comma-separated list of tester groups defined in Firebase.
+        #           If you don't use groups, you can use --testers "email1@example.com,email2@example.com"
+        #           or remove this option entirely if you only want to upload without immediate distribution.
+        run: firebase appdistribution:distribute app-debug.apk --app ${{ secrets.FIREBASE_APP_ID }} --token ${{ secrets.FIREBASE_TOKEN }} --groups "your-tester-group"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} # Explicitly pass the token as an env variable for firebase-tools
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }} # Explicitly pass the app ID as an env variable
+
+        # Optional: Add release notes or release notes file
+        # --release-notes "New debug build from CI pipeline."
+        # --release-notes-file "path/to/your/release_notes.txt"
