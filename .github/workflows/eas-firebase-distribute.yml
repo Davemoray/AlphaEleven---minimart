@@ -33,18 +33,28 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Wait for build to complete and get artifact URL
-        id: get-artifact
+      - name: Verify APK exists
         run: |
-          build_id=$(eas build:list --status=finished --limit=1 --json | jq -r '.[0].id')
-          download_url=$(eas build:details $build_id --json | jq -r '.artifacts.android.url')
-          echo "DOWNLOAD_URL=$download_url" >> $GITHUB_ENV
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          ls -la
+          if [ -f "app-release.apk" ]; then
+            echo "APK file exists"
+          else
+            echo "APK file not found"
+            exit 1
+          fi
 
-      - name: Download APK artifact
-        run: |
-          curl -o app-release.apk "$DOWNLOAD_URL"
+#      - name: Wait for build to complete and get artifact URL
+#        id: get-artifact
+#        run: |
+#          build_id=$(eas build:list --status=finished --limit=1 --json | jq -r '.[0].id')
+#          download_url=$(eas build:details $build_id --json | jq -r '.artifacts.android.url')
+#          echo "DOWNLOAD_URL=$download_url" >> $GITHUB_ENV
+#        env:
+#          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+#
+#      - name: Download APK artifact
+#        run: |
+#          curl -o app-release.apk "$DOWNLOAD_URL"
 
       - name: Upload APK to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
