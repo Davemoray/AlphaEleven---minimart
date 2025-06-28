@@ -1,0 +1,55 @@
+name: EAS BUILD and Firebase Upload
+
+on:
+  push:
+    branches:
+      - development
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name : Install dependencies
+        run: npm install
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: EAS login
+        run: eas whoami
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Trigger EAS build for APK
+        run: eas build --platform --profile development --non-interactive --no-wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Wait for build to complete and get artifacr URL
+        id: get-artifact
+        run: |
+          build_id=$(eas build:list --status=finished --limit=1 --json | jq -r '.[0].id')
+          download_url=$(eas build:details $build_id --json | jq -r '.artifacts.android.url')
+          echo "DOWNLOAD_URL=$download_url" >> $GITHUB_ENV
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Download APK artifact
+        run: |
+          curl -o app-release.apk "$DOWNLOAD_URL"
+
+      - name: Upload APK to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          file: app-release.apk
+          groups: testers
