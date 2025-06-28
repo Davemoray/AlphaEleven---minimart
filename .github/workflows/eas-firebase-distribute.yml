@@ -29,11 +29,17 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Trigger EAS build for APK
-        run: eas build --platform android --profile development --non-interactive --no-wait
+        run: eas build --platform android --profile development --non-interactive --wait
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Wait for build to complete and get artifacr URL
+      - name: Debug build list
+        run: |
+          eas build:list --status=finished --limit=1 --json
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Wait for build to complete and get artifact URL
         id: get-artifact
         run: |
           build_id=$(eas build:list --status=finished --limit=1 --json | jq -r '.[0].id')
