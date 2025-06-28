@@ -28,7 +28,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 🧪 Build APK using EAS (wait for completion)
+      - name: Build APK using EAS (wait for completion)
         id: eas-build
         run: |
             result=$(eas build --platform android --profile development --non-interactive --wait --json)
